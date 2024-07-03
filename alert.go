@@ -19,7 +19,7 @@ func GetCreateTableAlertsQuery() string {
 		id TEXT PRIMARY KEY,
 		user_id INTEGER NOT NULL,
 		label TEXT,
-		trigger_at DATETIME,
+		trigger_at DATETIME
 	);`
 }
 
