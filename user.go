@@ -16,7 +16,7 @@ type User struct {
 	IsAdmin   bool      `json:"is_admin"`
 }
 
-func GetCreateUsersTable() string {
+func GetCreateTableUsersQuery() string {
 	return `CREATE TABLE IF NOT EXISTS users (
 		id TEXT PRIMARY KEY,
 		user_id INTEGER NOT NULL UNIQUE,
