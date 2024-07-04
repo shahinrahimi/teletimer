@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -26,6 +27,20 @@ func main() {
 	if err != nil {
 		log.Panic("Cant create a new bot", err)
 	}
-	bot.Init()
+	go bot.Init()
+	user, err := NewUser(13654, "Test", "default")
+	if err != nil {
+		log.Panic("The user can not created", err)
+	}
+
+	if err := bot.store.CreateUser(*user); err != nil {
+		log.Panic("Cant create a user", err)
+	}
+
+	users, err := bot.store.GetUsers()
+	if err != nil {
+		log.Panic("cant get users", err)
+	}
+	fmt.Println(len(users))
 
 }

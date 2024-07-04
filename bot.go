@@ -32,17 +32,33 @@ func NewTelegramBot(store Storage, apiKey string) (*TelegramBot, error) {
 
 func (b *TelegramBot) Init() {
 	b.bot.Use(middleware.AutoRespond())
-	b.bot.Use(Logger)
-	b.bot.Handle("/createtimeralert", func(c tele.Context) error {
+	b.bot.Use(AutoResponder)
+	usersOnly := b.bot.Group()
+	usersOnly.Use(middleware.Whitelist())
+	usersOnly.Handle("/addalert", func(c tele.Context) error {
 		args := strings.Fields(c.Text())
 		if len(args) < 3 {
-			return c.Send("Usage: /createtimeralert <label> <number><unit>")
+			return c.Send("Usage: /addalert <label> <number><unit>")
 		}
 		return nil
 		// label := args[1]
 		// durationStr := args[2]
 		// userID := c.Sender().ID
 
+	})
+	usersOnly.Handle("/deletealert", func(c tele.Context) error {
+		args := strings.Fields(c.Text())
+		if len(args) < 3 {
+			return c.Send("Usage: /deletealert <id>")
+		}
+		return nil
+	})
+	usersOnly.Handle("/viewalerts", func(c tele.Context) error {
+		args := strings.Fields(c.Text())
+		if len(args) < 3 {
+			return c.Send("Usage: /viewalerts <id>")
+		}
+		return nil
 	})
 
 	b.bot.Start()

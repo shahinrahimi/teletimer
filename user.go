@@ -8,7 +8,7 @@ import (
 )
 
 type User struct {
-	Id        string    `json:"id"`
+	ID        string    `json:"id"`
 	UserID    int64     `json:"user_id"`
 	Username  string    `json:"username"`
 	Password  string    `json:"password"`
@@ -27,13 +27,29 @@ func GetCreateTableUsersQuery() string {
 	);`
 }
 
+func GetSelectAllUsersQuery() string {
+	return `SELECT id, user_id, username, password, created_at, is_admin FROM users`
+}
+func GetSelectUserQuery() string {
+	return `SELECT id, user_id, username, password, created_at, is_admin FROM users WHERE id = ?`
+}
+func GetSelectUserByUserIDQuery() string {
+	return `SELECT id, user_id, username, password, created_at, is_admin FROM users WHERE user_id = ?`
+}
+func GetInsertUserQuery() string {
+	return `INSERT INTO users (id, user_id, username, password, created_at, is_admin) VALUES (?, ?, ?, ?, ?, ?)`
+}
+func GetUpdateUserQuery() string {
+	return `UPDATE users SET user_id = ?, username = ?, password = ?, created_at = ?, is_admin = ? WHERE id = ?`
+}
+
 func NewUser(user_id int64, username, password string) (*User, error) {
 	hashedPassword, err := HashPassword(password)
 	if err != nil {
 		return nil, err
 	}
 	return &User{
-		Id:        fmt.Sprint("TU" + strconv.Itoa(rand.Int())),
+		ID:        fmt.Sprint("TU" + strconv.Itoa(rand.Int())),
 		UserID:    user_id,
 		Username:  username,
 		Password:  hashedPassword,
@@ -48,7 +64,7 @@ func NewAdmin(user_id int64, password string) (*User, error) {
 		return nil, err
 	}
 	return &User{
-		Id:        fmt.Sprint("AD99999999999"),
+		ID:        fmt.Sprint("AD99999999999"),
 		UserID:    user_id,
 		Username:  "admin",
 		Password:  hashedPassword,
@@ -57,7 +73,14 @@ func NewAdmin(user_id int64, password string) (*User, error) {
 	}, nil
 }
 
-func (u *User) toTelegramString() string {
+func (u *User) ToTelegramString() string {
 	return fmt.Sprintf("User ID: %d\nUsername: %s\nFistname: %s\nLastname: %s\nCreated At: %s",
 		u.UserID, u.Username, u.CreatedAt.Format(time.RFC3339))
+}
+
+func (u *User) ToArgs() []interface{} {
+	return []interface{}{u.ID, u.UserID, u.Username, u.Password, u.CreatedAt, u.IsAdmin}
+}
+func (u *User) ToFeilds() []interface{} {
+	return []interface{}{&u.ID, &u.UserID, &u.Username, &u.Password, &u.CreatedAt, &u.IsAdmin}
 }

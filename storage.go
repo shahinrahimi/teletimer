@@ -55,18 +55,53 @@ func (s *SqliteStore) Init() error {
 }
 
 func (s *SqliteStore) GetUser(id string) (*User, error) {
-	return nil, nil
+	query := GetSelectUserQuery()
+	var user User
+	feilds := user.ToFeilds()
+	err := s.db.QueryRow(query, id).Scan(feilds)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// handle user not found
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
 }
 func (s *SqliteStore) GetUsers() ([]User, error) {
-	return nil, nil
+	query := GetSelectAllUsersQuery()
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	var users []User
+	for rows.Next() {
+		var user User
+		fields := user.ToFeilds()
+		if err := rows.Scan(fields...); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	return users, nil
 }
 func (s *SqliteStore) GetUserByUserID(userID int64) (*User, error) {
 	return nil, nil
 }
 func (s *SqliteStore) CreateUser(user User) error {
+	query := GetInsertUserQuery()
+	args := user.ToArgs()
+	if _, err := s.db.Exec(query, args...); err != nil {
+		return err
+	}
 	return nil
 }
 func (s *SqliteStore) UpdateUser(id string, user User) error {
+	query := GetUpdateUserQuery()
+	args := user.ToArgs()
+	if _, err := s.db.Exec(query, args); err != nil {
+		return err
+	}
 	return nil
 }
 func (s *SqliteStore) DeleteUser(id string) error {
