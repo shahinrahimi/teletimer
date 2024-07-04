@@ -86,7 +86,13 @@ func (s *SqliteStore) GetUsers() ([]User, error) {
 	return users, nil
 }
 func (s *SqliteStore) GetUserByUserID(userID int64) (*User, error) {
-	return nil, nil
+	query := GetSelectUserByUserIDQuery()
+	var user User
+	feilds := user.ToFeilds()
+	if err := s.db.QueryRow(query, userID).Scan(feilds...); err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 func (s *SqliteStore) CreateUser(user User) error {
 	query := GetInsertUserQuery()

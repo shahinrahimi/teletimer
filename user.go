@@ -67,7 +67,7 @@ func NewAdmin(user_id int64, password string) (*User, error) {
 		return nil, err
 	}
 	return &User{
-		ID:        fmt.Sprint("AD99999999999"),
+		ID:        "AD99999999999",
 		UserID:    user_id,
 		Username:  "admin",
 		Password:  hashedPassword,

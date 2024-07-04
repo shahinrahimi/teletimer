@@ -14,7 +14,6 @@ func setupTestStore(t *testing.T) *SqliteStore {
 	}
 	return store
 }
-
 func TestCreateUser(t *testing.T) {
 	store := setupTestStore(t)
 	defer store.db.Close()
@@ -83,6 +82,26 @@ func TestGetUsers(t *testing.T) {
 	}
 }
 
+func TestGetUserByUserID(t *testing.T) {
+	store := setupTestStore(t)
+	defer store.db.Close()
+	user, err := NewUser(123, "testuser", "password")
+	if err != nil {
+		t.Fatalf("Failed to create user object: %v", err)
+	}
+	if err := store.CreateUser(*user); err != nil {
+		t.Fatalf("Failed to insert user to db: %v", err)
+	}
+	fetchedUser, err := store.GetUserByUserID(123)
+	if err != nil {
+		t.Fatalf("Failed to query user with userID: %v", err)
+	}
+	if fetchedUser.UserID != user.UserID {
+		t.Fatalf("Expected userID %v, got %v", user.UserID, fetchedUser.UserID)
+	}
+
+}
+
 func TestUpdateUser(t *testing.T) {
 	store := setupTestStore(t)
 	user, err := NewUser(123, "testuser", "password")
@@ -130,5 +149,4 @@ func TestDeleteUser(t *testing.T) {
 	if count != 0 {
 		t.Fatalf("Expected 0 users, got %d", count)
 	}
-
 }
