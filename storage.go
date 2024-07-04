@@ -98,13 +98,18 @@ func (s *SqliteStore) CreateUser(user User) error {
 }
 func (s *SqliteStore) UpdateUser(id string, user User) error {
 	query := GetUpdateUserQuery()
-	args := user.ToArgs()
-	if _, err := s.db.Exec(query, args); err != nil {
+	args := user.ToUpdatedArgs()
+	if _, err := s.db.Exec(query, args...); err != nil {
 		return err
 	}
 	return nil
 }
 func (s *SqliteStore) DeleteUser(id string) error {
+	query := GetDeleteUserQuery()
+	if _, err := s.db.Exec(query, id); err != nil {
+		return err
+	}
+
 	return nil
 }
 

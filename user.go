@@ -42,6 +42,9 @@ func GetInsertUserQuery() string {
 func GetUpdateUserQuery() string {
 	return `UPDATE users SET user_id = ?, username = ?, password = ?, created_at = ?, is_admin = ? WHERE id = ?`
 }
+func GetDeleteUserQuery() string {
+	return `DELETE FROM users WHERE id = ?`
+}
 
 func NewUser(user_id int64, username, password string) (*User, error) {
 	hashedPassword, err := HashPassword(password)
@@ -80,6 +83,9 @@ func (u *User) ToTelegramString() string {
 
 func (u *User) ToArgs() []interface{} {
 	return []interface{}{u.ID, u.UserID, u.Username, u.Password, u.CreatedAt, u.IsAdmin}
+}
+func (u *User) ToUpdatedArgs() []interface{} {
+	return []interface{}{u.UserID, u.Username, u.Password, u.CreatedAt, u.IsAdmin, u.ID}
 }
 func (u *User) ToFeilds() []interface{} {
 	return []interface{}{&u.ID, &u.UserID, &u.Username, &u.Password, &u.CreatedAt, &u.IsAdmin}

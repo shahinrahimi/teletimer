@@ -17,6 +17,7 @@ func setupTestStore(t *testing.T) *SqliteStore {
 
 func TestCreateUser(t *testing.T) {
 	store := setupTestStore(t)
+	defer store.db.Close()
 	user, err := NewUser(123, "testuser", "password")
 	if err != nil {
 		t.Fatalf("Failed to create user object: %v", err)
@@ -36,6 +37,7 @@ func TestCreateUser(t *testing.T) {
 }
 func TestGetUser(t *testing.T) {
 	store := setupTestStore(t)
+	defer store.db.Close()
 	user, err := NewUser(123, "testuser", "password")
 	if err != nil {
 		t.Fatalf("Failed to create user object: %v", err)
@@ -54,6 +56,7 @@ func TestGetUser(t *testing.T) {
 }
 func TestGetUsers(t *testing.T) {
 	store := setupTestStore(t)
+	defer store.db.Close()
 	var users []User
 	for i := 0; i < 10; i++ {
 		user, err := NewUser(int64(i), "testuser", "password")
@@ -78,4 +81,54 @@ func TestGetUsers(t *testing.T) {
 	if len(fetchedUsers) != len(users) {
 		t.Fatalf("Expected %d users, got %d", len(users), len(fetchedUsers))
 	}
+}
+
+func TestUpdateUser(t *testing.T) {
+	store := setupTestStore(t)
+	user, err := NewUser(123, "testuser", "password")
+	if err != nil {
+		t.Fatalf("Failed to create user object: %v", err)
+	}
+	if err := store.CreateUser(*user); err != nil {
+		t.Fatalf("Failed to insert user to db: %v", err)
+	}
+	// create test for chenging username
+	updatedUsername := "updateduser"
+	user.Username = updatedUsername
+	if err = store.UpdateUser(user.ID, *user); err != nil {
+		t.Fatalf("Failed to update user: %v", err)
+	}
+	fetchedUser, err := store.GetUser(user.ID)
+	if err != nil {
+		t.Fatalf("Failed to get user: %v", err)
+	}
+	if fetchedUser.Username != updatedUsername {
+		t.Fatalf("Expected username %s, got %s", updatedUsername, fetchedUser.Username)
+	}
+	// TODO create other test for updating feilds
+}
+
+func TestDeleteUser(t *testing.T) {
+	store := setupTestStore(t)
+	defer store.db.Close()
+	user, err := NewUser(123, "testuser", "password")
+	if err != nil {
+		t.Fatalf("Failed to create user object: %v", err)
+	}
+	if err := store.CreateUser(*user); err != nil {
+		t.Fatalf("Failed to insert user to db: %v", err)
+	}
+
+	if err := store.DeleteUser(user.ID); err != nil {
+		t.Fatalf("Failed to delete user: %v", err)
+	}
+	var count int
+	if err := store.db.QueryRow("SELECT COUNT(*) FROM users WHERE id = ?", user.ID).Scan(&count); err != nil {
+		t.Fatalf("Failed to query user: %v", err)
+	}
+
+	if count != 0 {
+		t.Fatalf("Expected 0 users, got %d", count)
+	}
+
 }
