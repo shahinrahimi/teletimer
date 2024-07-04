@@ -120,20 +120,65 @@ func (s *SqliteStore) DeleteUser(id string) error {
 }
 
 func (s *SqliteStore) GetAlert(id string) (*Alert, error) {
-	return nil, nil
+	query := GetSelectAlertQuery()
+	var alert Alert
+	feilds := alert.ToFeilds()
+	if err := s.db.QueryRow(query, id).Scan(feilds...); err != nil {
+		return nil, err
+	}
+	return &alert, nil
 }
 func (s *SqliteStore) GetAlerts() ([]Alert, error) {
-	return nil, nil
+	query := GetSelectAlertsQuery()
+	var alerts []Alert
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var alert Alert
+		feilds := alert.ToFeilds()
+		if err := rows.Scan(feilds...); err != nil {
+			return nil, err
+		}
+		alerts = append(alerts, alert)
+	}
+	return alerts, nil
 }
 func (s *SqliteStore) GetAlertsByUserID(userID int64) ([]Alert, error) {
-	return nil, nil
+	query := GetSelectAlertsByUserIDQuery()
+	rows, err := s.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	var alerts []Alert
+	for rows.Next() {
+		var alert Alert
+		if err := rows.Scan(alert.ToFeilds()...); err != nil {
+			return nil, err
+		}
+		alerts = append(alerts, alert)
+	}
+	return alerts, nil
 }
 func (s *SqliteStore) CreateAlert(alert Alert) error {
+	query := GetInsertAlertQuery()
+	if _, err := s.db.Exec(query, alert.ToArgs()...); err != nil {
+		return err
+	}
 	return nil
 }
 func (s *SqliteStore) UpdateAlert(id string, alert Alert) error {
+	query := GetUpdateAlertQuery()
+	if _, err := s.db.Exec(query, alert.ToArgs()...); err != nil {
+		return err
+	}
 	return nil
 }
 func (s *SqliteStore) DeleteAlert(id string) error {
+	query := GetDeleteAlertQuery()
+	if _, err := s.db.Exec(query, id); err != nil {
+		return err
+	}
 	return nil
 }

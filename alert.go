@@ -23,9 +23,37 @@ func GetCreateTableAlertsQuery() string {
 	);`
 }
 
-func NewAlert(userID int64) *Alert {
+func GetSelectAlertsQuery() string {
+	return `SELECT id, user_id, label, trigger_at FROM alerts`
+}
+func GetSelectAlertQuery() string {
+	return `SELECT id, user_id, label, trigger_at FROM alerts WHERE id = ?`
+}
+func GetSelectAlertsByUserIDQuery() string {
+	return `SELECT id, user_id, label, trigger_at FROM alerts WHERE user_id = ?`
+}
+func GetInsertAlertQuery() string {
+	return `INSERT INTO alerts (id, user_id, label, trigger_at) VALUES (?,?,?,?)`
+}
+func GetUpdateAlertQuery() string {
+	return `UPDATE alerts SET label = ?, trigger_at = ? WHERE id = ?`
+}
+func GetDeleteAlertQuery() string {
+	return `DELETE FROM alerts WHERE id = ?`
+}
+
+func NewAlert(userID int64, label string, triggerAt time.Time) *Alert {
 	return &Alert{
-		ID:     fmt.Sprint("TA" + strconv.Itoa(rand.Int())),
-		UserID: userID,
+		ID:        fmt.Sprint("TA" + strconv.Itoa(rand.Int())),
+		UserID:    userID,
+		Lable:     label,
+		TriggerAt: triggerAt,
 	}
+}
+
+func (a *Alert) ToArgs() []interface{} {
+	return []interface{}{a.ID, a.UserID, a.Lable, a.TriggerAt}
+}
+func (a *Alert) ToFeilds() []interface{} {
+	return []interface{}{&a.ID, &a.UserID, &a.Lable, &a.TriggerAt}
 }

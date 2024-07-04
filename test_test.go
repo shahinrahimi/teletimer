@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func setupTestStore(t *testing.T) *SqliteStore {
@@ -81,7 +82,6 @@ func TestGetUsers(t *testing.T) {
 		t.Fatalf("Expected %d users, got %d", len(users), len(fetchedUsers))
 	}
 }
-
 func TestGetUserByUserID(t *testing.T) {
 	store := setupTestStore(t)
 	defer store.db.Close()
@@ -99,9 +99,7 @@ func TestGetUserByUserID(t *testing.T) {
 	if fetchedUser.UserID != user.UserID {
 		t.Fatalf("Expected userID %v, got %v", user.UserID, fetchedUser.UserID)
 	}
-
 }
-
 func TestUpdateUser(t *testing.T) {
 	store := setupTestStore(t)
 	user, err := NewUser(123, "testuser", "password")
@@ -126,7 +124,6 @@ func TestUpdateUser(t *testing.T) {
 	}
 	// TODO create other test for updating feilds
 }
-
 func TestDeleteUser(t *testing.T) {
 	store := setupTestStore(t)
 	defer store.db.Close()
@@ -149,4 +146,112 @@ func TestDeleteUser(t *testing.T) {
 	if count != 0 {
 		t.Fatalf("Expected 0 users, got %d", count)
 	}
+}
+func TestCreateAlert(t *testing.T) {
+	store := setupTestStore(t)
+	defer store.db.Close()
+	alert := NewAlert(123, "testalert", time.Time{})
+	if err := store.CreateAlert(*alert); err != nil {
+		t.Fatalf("Failed to insert alert to db: %v", err)
+	}
+	var count int
+	if err := store.db.QueryRow("SELECT COUNT(*) FROM alerts WHERE id = ?", alert.ID).Scan(&count); err != nil {
+		t.Fatalf("Failed to query alert: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("Expected 1 user, got %d", count)
+	}
+}
+
+func TestGetAlert(t *testing.T) {
+	store := setupTestStore(t)
+	defer store.db.Close()
+	alert := NewAlert(123, "testalert", time.Time{})
+	if err := store.CreateAlert(*alert); err != nil {
+		t.Fatalf("Failed to insert alert to db: %v", err)
+	}
+	fetchedAlert, err := store.GetAlert(alert.ID)
+	if err != nil {
+		t.Fatalf("Faild to query alert: %v", err)
+	}
+	if fetchedAlert.UserID != alert.UserID {
+		t.Fatalf("Expected userID %v, got %v", alert.UserID, fetchedAlert.UserID)
+	}
+	if fetchedAlert.Lable != alert.Lable {
+		t.Fatalf("Expected label %s, got %s", alert.Lable, fetchedAlert.Lable)
+	}
+}
+
+func TestGetAlertByUserID(t *testing.T) {
+	store := setupTestStore(t)
+	defer store.db.Close()
+	testingAlerts := []Alert{
+		*NewAlert(123, "testalert", time.Time{}),
+		*NewAlert(123, "testalert", time.Time{}),
+		*NewAlert(12345, "testalert", time.Time{}),
+		*NewAlert(12345, "testalert", time.Time{}),
+		*NewAlert(12345, "testalert", time.Time{}),
+	}
+	for _, alert := range testingAlerts {
+		if err := store.CreateAlert(alert); err != nil {
+			t.Fatalf("Failed to insert alert to db: %v", err)
+		}
+	}
+
+	fetchedAlerts, err := store.GetAlertsByUserID(123)
+	if err != nil {
+		t.Fatalf("Faild to query alert: %v", err)
+	}
+	if len(fetchedAlerts) != 2 {
+		t.Fatalf("Expected alerts length is %d, got %d", 2, len(fetchedAlerts))
+	}
+}
+
+func TestGetAlerts(t *testing.T) {
+	store := setupTestStore(t)
+	defer store.db.Close()
+	testingAlerts := []Alert{
+		*NewAlert(123, "testalert", time.Time{}),
+		*NewAlert(123, "testalert", time.Time{}),
+		*NewAlert(12345, "testalert", time.Time{}),
+		*NewAlert(12345, "testalert", time.Time{}),
+		*NewAlert(12345, "testalert", time.Time{}),
+	}
+	for _, alert := range testingAlerts {
+		if err := store.CreateAlert(alert); err != nil {
+			t.Fatalf("Failed to insert alert to db: %v", err)
+		}
+	}
+	fetchedAlerts, err := store.GetAlerts()
+	if err != nil {
+		t.Fatalf("Failed to query alerts: %v", err)
+	}
+	if len(fetchedAlerts) != 5 {
+		t.Fatalf("Expected alerts length is %d, got %d", 2, len(fetchedAlerts))
+	}
+}
+
+func TestUpdateAlert(t *testing.T) {
+
+}
+
+func TestDeleteAlert(t *testing.T) {
+	store := setupTestStore(t)
+	defer store.db.Close()
+	alert := NewAlert(123, "testalert", time.Time{})
+	if err := store.CreateAlert(*alert); err != nil {
+		t.Fatalf("Failed to insert alert to db: %v", err)
+	}
+	if err := store.DeleteAlert(alert.ID); err != nil {
+		t.Fatalf("Failed to delete alert: %v", err)
+	}
+	var count int
+	if err := store.db.QueryRow("SELECT COUNT(*) FROM alerts WHERE id = ?", alert.ID).Scan(&count); err != nil {
+		t.Fatalf("Failed to query alert: %v", err)
+	}
+
+	if count != 0 {
+		t.Fatalf("Expected 0 alerts, got %d", count)
+	}
+
 }
