@@ -58,7 +58,7 @@ func (s *SqliteStore) GetUser(id string) (*User, error) {
 	query := GetSelectUserQuery()
 	var user User
 	feilds := user.ToFeilds()
-	err := s.db.QueryRow(query, id).Scan(feilds)
+	err := s.db.QueryRow(query, id).Scan(feilds...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// handle user not found

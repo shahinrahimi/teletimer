@@ -74,7 +74,7 @@ func NewAdmin(user_id int64, password string) (*User, error) {
 }
 
 func (u *User) ToTelegramString() string {
-	return fmt.Sprintf("User ID: %d\nUsername: %s\nFistname: %s\nLastname: %s\nCreated At: %s",
+	return fmt.Sprintf("User ID: %d\nUsername: %s\nCreated At: %s",
 		u.UserID, u.Username, u.CreatedAt.Format(time.RFC3339))
 }
 
