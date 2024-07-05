@@ -45,6 +45,7 @@ func (b *TelegramBot) Init() {
 	}
 
 	b.bot.Handle("/echo", b.HandleEcho())
+	b.bot.Handle("/addalert", b.HandleAddAlert())
 
 	adminsOnly := b.bot.Group()
 	adminsOnly.Use(middleware.Whitelist(adminIDs...))
@@ -53,7 +54,7 @@ func (b *TelegramBot) Init() {
 	usersOnly := b.bot.Group()
 	usersOnly.Use(middleware.Whitelist(userIDs...))
 	usersOnly.Handle("/test", b.HandleTest())
-	usersOnly.Handle("/addalert", b.HandleAddAlert())
+	// usersOnly.Handle("/addalert", b.HandleAddAlert())
 	usersOnly.Handle("/deletealert", func(c tele.Context) error {
 		args := strings.Fields(c.Text())
 		if len(args) < 3 {
@@ -118,6 +119,7 @@ func (b *TelegramBot) HandleAddAlert() tele.HandlerFunc {
 		if err := b.store.CreateAlert(*newAlert); err != nil {
 			return err
 		}
+		go b.ScheduleAlert(userID, label, triggerAt)
 		return c.Send(fmt.Sprintf("Alert created: %s in %s", label, durationStr))
 
 	}
@@ -131,6 +133,11 @@ func (b *TelegramBot) SendAlert(userID int64, label string) {
 		},
 	}
 	b.bot.Send(tele.ChatID(userID), fmt.Sprintf("Alert: %s", label), &tele.ReplyMarkup{InlineKeyboard: inlineKeys})
+}
+
+func (b *TelegramBot) ScheduleAlert(userID int64, label string, triggerAt time.Time) {
+	time.Sleep(time.Until(triggerAt))
+	b.SendAlert(userID, label)
 }
 
 func AutoResponder(next tele.HandlerFunc) tele.HandlerFunc {
