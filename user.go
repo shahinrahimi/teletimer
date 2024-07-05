@@ -61,15 +61,15 @@ func NewUser(user_id int64, username, password string) (*User, error) {
 	}, nil
 }
 
-func NewAdmin(user_id int64, password string) (*User, error) {
+func NewAdmin(user_id int64, username, password string) (*User, error) {
 	hashedPassword, err := HashPassword(password)
 	if err != nil {
 		return nil, err
 	}
 	return &User{
-		ID:        "AD99999999999",
+		ID:        fmt.Sprint("TA" + strconv.Itoa(rand.Int())),
 		UserID:    user_id,
-		Username:  "admin",
+		Username:  username,
 		Password:  hashedPassword,
 		CreatedAt: time.Now().UTC(),
 		IsAdmin:   true,

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -33,6 +34,66 @@ func TestCreateUser(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("Expected 1 user, got %d", count)
+	}
+}
+func TestGetUsersIDs(t *testing.T) {
+	store := setupTestStore(t)
+	//create 100 Users with users id
+	var users []*User
+	var usersIDs []int64
+	for i := 0; i < 10; i++ {
+		user, err := NewUser(int64(i), "testuser"+fmt.Sprint(i), "default")
+		if err != nil {
+			t.Fatalf("Failed to create user object: %v", err)
+			break
+		}
+		users = append(users, user)
+		usersIDs = append(usersIDs, user.UserID)
+	}
+	// Wrire to db
+	for _, user := range users {
+		if err := store.CreateUser(*user); err != nil {
+			t.Fatalf("Failed to insert user to db: %v", err)
+			break
+		}
+	}
+	// Read db
+	fetchedUsersIDs, err := store.GetUserIDs()
+	if err != nil {
+		t.Fatalf("Failed to query userIDs: %v", err)
+	}
+	if !AreSlicesEqual(usersIDs, fetchedUsersIDs) {
+		t.Fatalf("Fetched usersids is not same")
+	}
+}
+func TestGetAdminIDs(t *testing.T) {
+	store := setupTestStore(t)
+	//create 100 Users with users id
+	var users []*User
+	var usersIDs []int64
+	for i := 0; i < 10; i++ {
+		user, err := NewAdmin(int64(i), "testadmin"+fmt.Sprint(i), "default")
+		if err != nil {
+			t.Fatalf("Failed to create user object: %v", err)
+			break
+		}
+		users = append(users, user)
+		usersIDs = append(usersIDs, user.UserID)
+	}
+	// Wrire to db
+	for _, user := range users {
+		if err := store.CreateUser(*user); err != nil {
+			t.Fatalf("Failed to insert user to db: %v", err)
+			break
+		}
+	}
+	// Read db
+	fetchedUsersIDs, err := store.GetUserIDs()
+	if err != nil {
+		t.Fatalf("Failed to query userIDs: %v", err)
+	}
+	if !AreSlicesEqual(usersIDs, fetchedUsersIDs) {
+		t.Fatalf("Fetched usersids is not same")
 	}
 }
 func TestGetUser(t *testing.T) {

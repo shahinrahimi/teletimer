@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -29,23 +30,30 @@ func NewTelegramBot(store Storage, apiKey string) (*TelegramBot, error) {
 		bot:   b,
 	}, nil
 }
-
 func (b *TelegramBot) Init() {
 	b.bot.Use(middleware.AutoRespond())
 	b.bot.Use(AutoResponder)
-	usersOnly := b.bot.Group()
-	usersOnly.Use(middleware.Whitelist())
-	usersOnly.Handle("/addalert", func(c tele.Context) error {
-		args := strings.Fields(c.Text())
-		if len(args) < 3 {
-			return c.Send("Usage: /addalert <label> <number><unit>")
-		}
-		return nil
-		// label := args[1]
-		// durationStr := args[2]
-		// userID := c.Sender().ID
 
-	})
+	adminIDs, err := b.store.GetAdminIDs()
+	if err != nil {
+		log.Println("Error finding usersIDs for admins", err)
+	}
+
+	userIDs, err := b.store.GetUserIDs()
+	if err != nil {
+		log.Println("Error finding usersIDs for users", err)
+	}
+
+	b.bot.Handle("/echo", b.HandleEcho())
+
+	adminsOnly := b.bot.Group()
+	adminsOnly.Use(middleware.Whitelist(adminIDs...))
+	adminsOnly.Handle("/helloadmin", b.HandleHelloAdmin())
+	adminsOnly.Handle("/test", b.HandleTest())
+	usersOnly := b.bot.Group()
+	usersOnly.Use(middleware.Whitelist(userIDs...))
+	usersOnly.Handle("/test", b.HandleTest())
+	usersOnly.Handle("/addalert", b.HandleAddAlert())
 	usersOnly.Handle("/deletealert", func(c tele.Context) error {
 		args := strings.Fields(c.Text())
 		if len(args) < 3 {
@@ -62,6 +70,67 @@ func (b *TelegramBot) Init() {
 	})
 
 	b.bot.Start()
+}
+
+func (b *TelegramBot) HandleEcho() tele.HandlerFunc {
+	return func(c tele.Context) error {
+		args := strings.Fields(c.Text())
+		if len(args) < 2 {
+			return c.Send("Usage: /echo <somthing>")
+		}
+		somthing := args[1]
+		return c.Send(somthing)
+	}
+}
+
+func (b *TelegramBot) HandleHelloAdmin() tele.HandlerFunc {
+	return func(c tele.Context) error {
+		return c.Send("Hi Admin")
+	}
+}
+func (b *TelegramBot) HandleTest() tele.HandlerFunc {
+	return func(c tele.Context) error {
+		return c.Send("1\n2\n3\n testing")
+	}
+}
+func (b *TelegramBot) HandleAddAlert() tele.HandlerFunc {
+	return func(c tele.Context) error {
+		args := strings.Fields(c.Text())
+		if len(args) < 3 {
+			return c.Send("Usage: /addalert <label> <number><unit>")
+		}
+		label := args[1]
+		durationStr := args[2]
+		userID := c.Sender().ID
+		duration, err := ParseDuration(durationStr)
+		if err != nil {
+			return c.Send("Invalid duration format.")
+		}
+		count, err2 := b.store.GetAlertsCountByUserID(userID)
+		if err2 != true {
+			log.Println("Does not able to count the alerts by userID")
+		}
+		if count >= maxAlerts {
+			return c.Send("You can only create up to 5 alerts.")
+		}
+		triggerAt := time.Now().Add(duration)
+		newAlert := NewAlert(userID, label, triggerAt)
+		if err := b.store.CreateAlert(*newAlert); err != nil {
+			return err
+		}
+		return c.Send(fmt.Sprintf("Alert created: %s in %s", label, durationStr))
+
+	}
+}
+
+func (b *TelegramBot) SendAlert(userID int64, label string) {
+	inlineKeys := [][]tele.InlineButton{
+		{
+			tele.InlineButton{Unique: "snooze", Text: "Snooze"},
+			tele.InlineButton{Unique: "dismiss", Text: "Dismiss"},
+		},
+	}
+	b.bot.Send(tele.ChatID(userID), fmt.Sprintf("Alert: %s", label), &tele.ReplyMarkup{InlineKeyboard: inlineKeys})
 }
 
 func AutoResponder(next tele.HandlerFunc) tele.HandlerFunc {

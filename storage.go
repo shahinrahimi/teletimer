@@ -8,12 +8,15 @@ import (
 )
 
 type Storage interface {
+	GetAdminIDs() ([]int64, error)
+	GetUserIDs() ([]int64, error)
 	GetUser(id string) (*User, error)
 	GetUsers() ([]User, error)
 	GetUserByUserID(userID int64) (*User, error)
 	CreateUser(user User) error
 	UpdateUser(id string, u User) error
 	DeleteUser(id string) error
+	GetUsersCount() (int, bool)
 
 	GetAlert(id string) (*Alert, error)
 	GetAlerts() ([]Alert, error)
@@ -21,6 +24,7 @@ type Storage interface {
 	CreateAlert(a Alert) error
 	UpdateAlert(id string, a Alert) error
 	DeleteAlert(id string) error
+	GetAlertsCountByUserID(userID int64) (int, bool)
 }
 
 type SqliteStore struct {
@@ -52,6 +56,43 @@ func (s *SqliteStore) Init() error {
 		return err
 	}
 	return nil
+}
+func (s *SqliteStore) GetAdminIDs() ([]int64, error) {
+	rows, err := s.db.Query("SELECT user_id FROM users WHERE is_admin = ?", true)
+	if err != nil {
+		return nil, err
+	}
+	var adminIDs []int64
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.UserID); err != nil {
+			return nil, err
+		}
+		adminIDs = append(adminIDs, user.UserID)
+	}
+	return adminIDs, nil
+}
+func (s *SqliteStore) GetUserIDs() ([]int64, error) {
+	rows, err := s.db.Query("SELECT user_id FROM users")
+	if err != nil {
+		return nil, err
+	}
+	var userIDs []int64
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.UserID); err != nil {
+			return nil, err
+		}
+		userIDs = append(userIDs, user.UserID)
+	}
+	return userIDs, nil
+}
+func (s *SqliteStore) GetUsersCount() (int, bool) {
+	var count int
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
+		return 0, false
+	}
+	return count, true
 }
 
 func (s *SqliteStore) GetUser(id string) (*User, error) {
@@ -160,6 +201,13 @@ func (s *SqliteStore) GetAlertsByUserID(userID int64) ([]Alert, error) {
 		alerts = append(alerts, alert)
 	}
 	return alerts, nil
+}
+func (s *SqliteStore) GetAlertsCountByUserID(userID int64) (int, bool) {
+	var count int
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM alerts WHERE user_id = ?", userID).Scan(&count); err != nil {
+		return 0, false
+	}
+	return count, true
 }
 func (s *SqliteStore) CreateAlert(alert Alert) error {
 	query := GetInsertAlertQuery()
