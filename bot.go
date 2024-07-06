@@ -34,36 +34,38 @@ func (b *TelegramBot) Init() {
 	b.bot.Use(middleware.AutoRespond())
 	b.bot.Use(AutoResponder)
 
-	adminIDs, err := b.store.GetAdminIDs()
-	if err != nil {
-		log.Println("Error finding usersIDs for admins", err)
-	}
+	// adminIDs, err := b.store.GetAdminIDs()
+	// if err != nil {
+	// 	log.Println("Error finding usersIDs for admins", err)
+	// }
 
-	userIDs, err := b.store.GetUserIDs()
-	if err != nil {
-		log.Println("Error finding usersIDs for users", err)
-	}
+	// userIDs, err := b.store.GetUserIDs()
+	// if err != nil {
+	// 	log.Println("Error finding usersIDs for users", err)
+	// }
 
 	// public cammands
-	b.bot.Handle("/echo", MakeHandleFunc(b.HandleEcho))
+	b.bot.Handle("/echo", MakeHandleFunc(b.HandleEcho), Authenticater)
 	b.bot.Handle("/start", MakeHandleFunc(b.HandleRegister))
 	b.bot.Handle("/deleteme", MakeHandleFunc(b.HandleDeleteMe))
 
 	// usersonly
 	usersOnly := b.bot.Group()
-	usersOnly.Use(middleware.Whitelist(userIDs...))
+	usersOnly.Use(b.RequiredAuthenticated)
 	usersOnly.Handle("/addalert", MakeHandleFunc(b.HandleAddAlert))
 	usersOnly.Handle("/viewalerts", MakeHandleFunc(b.HandleViewAlerts))
 	usersOnly.Handle("/deletealert", MakeHandleFunc(b.HandleDeleteAlert))
 	usersOnly.Handle("/updatealert", MakeHandleFunc(b.HandleUpdateAlert))
 	usersOnly.Handle(tele.OnCallback, MakeHandleFunc(b.HandleButtons))
+	// usersOnly.Use(middleware.Whitelist(userIDs...))
 
 	// adminsonly
 	adminsOnly := b.bot.Group()
-	adminsOnly.Use(middleware.Whitelist(adminIDs...))
-	adminsOnly.Handle("/viewusers", MakeHandleFunc(b.HandleViewUsers))
-	adminsOnly.Handle("/kickuser", MakeHandleFunc(b.HandleKickUser))
-	adminsOnly.Handle("/banuser", MakeHandleFunc(b.HandleBanUser))
+	adminsOnly.Use(b.RequiredAuthenticated)
+	adminsOnly.Handle("/viewusers", MakeHandleFunc(b.HandleViewUsers), b.RequiredAthorization)
+	adminsOnly.Handle("/kickuser", MakeHandleFunc(b.HandleKickUser), b.RequiredAthorization)
+	adminsOnly.Handle("/banuser", MakeHandleFunc(b.HandleBanUser), b.RequiredAthorization)
+	// adminsOnly.Use(middleware.Whitelist(adminIDs...))
 
 	b.bot.Start()
 }
@@ -198,13 +200,39 @@ func AutoResponder(next tele.HandlerFunc) tele.HandlerFunc {
 	}
 }
 
-func Logger(next tele.HandlerFunc) tele.HandlerFunc {
+func Authenticater(next tele.HandlerFunc) tele.HandlerFunc {
 	return func(c tele.Context) error {
 		var (
 			user = c.Sender()
 			text = c.Text()
 		)
 		log.Println(user, " wrote ", text)
+		return next(c)
+	}
+}
+
+func (b *TelegramBot) RequiredAuthenticated(next tele.HandlerFunc) tele.HandlerFunc {
+	return func(c tele.Context) error {
+		var userID = c.Sender().ID
+		if _, err := b.store.GetUserByUserID(userID); err != nil {
+			c.Send("You are not registered!")
+			return err
+		}
+		return next(c)
+	}
+}
+
+func (b *TelegramBot) RequiredAthorization(next tele.HandlerFunc) tele.HandlerFunc {
+	return func(c tele.Context) error {
+		var userID = c.Sender().ID
+		user, err := b.store.GetUserByUserID(userID)
+		if err != nil {
+			c.Send("You are not registered!")
+			return err
+		}
+		if !user.IsAdmin {
+			c.Send("Permission denied!")
+		}
 		return next(c)
 	}
 }
