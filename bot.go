@@ -44,31 +44,32 @@ func (b *TelegramBot) Init() {
 		log.Println("Error finding usersIDs for users", err)
 	}
 
-	b.bot.Handle("/start", makeHandleFunc(b.HandleLogin))
-	b.bot.Handle("/deleteme", makeHandleFunc(b.HandleDeleteMe))
+	// public cammands
+	b.bot.Handle("/echo", MakeHandleFunc(b.HandleEcho))
+	b.bot.Handle("/start", MakeHandleFunc(b.HandleRegister))
+	b.bot.Handle("/deleteme", MakeHandleFunc(b.HandleDeleteMe))
 
-	b.bot.Handle("/echo", makeHandleFunc(b.HandleButtons))
-	b.bot.Handle("/addalert", makeHandleFunc(b.HandleAddAlert))
-	b.bot.Handle("/viewalerts", makeHandleFunc(b.HandleViewAlerts))
-	b.bot.Handle("/deletealert", makeHandleFunc(b.HandleDeleteAlert))
-	b.bot.Handle("/updatealert", makeHandleFunc(b.HandleUpdateAlert))
-	b.bot.Handle(tele.OnCallback, makeHandleFunc(b.HandleButtons))
-
-	adminsOnly := b.bot.Group()
-	adminsOnly.Use(middleware.Whitelist(adminIDs...))
+	// usersonly
 	usersOnly := b.bot.Group()
 	usersOnly.Use(middleware.Whitelist(userIDs...))
+	usersOnly.Handle("/addalert", MakeHandleFunc(b.HandleAddAlert))
+	usersOnly.Handle("/viewalerts", MakeHandleFunc(b.HandleViewAlerts))
+	usersOnly.Handle("/deletealert", MakeHandleFunc(b.HandleDeleteAlert))
+	usersOnly.Handle("/updatealert", MakeHandleFunc(b.HandleUpdateAlert))
+	usersOnly.Handle(tele.OnCallback, MakeHandleFunc(b.HandleButtons))
+
+	// adminsonly
+	adminsOnly := b.bot.Group()
+	adminsOnly.Use(middleware.Whitelist(adminIDs...))
+	adminsOnly.Handle("/viewusers", MakeHandleFunc(b.HandleViewUsers))
+	adminsOnly.Handle("/kickuser", MakeHandleFunc(b.HandleKickUser))
+	adminsOnly.Handle("/banuser", MakeHandleFunc(b.HandleBanUser))
 
 	b.bot.Start()
 }
 
-type HandleFunc func(c tele.Context) error
-type ApiError struct {
-	Error string `json:"error"`
-}
-
 // public handlers
-func (b *TelegramBot) HandleLogin(c tele.Context) error {
+func (b *TelegramBot) HandleRegister(c tele.Context) error {
 	userID := c.Sender().ID
 	if _, err := b.store.GetUserByUserID(userID); err == nil {
 		return c.Send("You are already registered!")
@@ -81,13 +82,12 @@ func (b *TelegramBot) HandleLogin(c tele.Context) error {
 		return c.Send("Failed to insert user to users.")
 	}
 	return c.Send("You are registered successfully!")
-
 }
 func (b *TelegramBot) HandleDeleteMe(c tele.Context) error {
 	return nil
 }
 
-// handles
+// private
 func (b *TelegramBot) HandleEcho(c tele.Context) error {
 	args := strings.Fields(c.Text())
 	if len(args) < 2 {
@@ -108,9 +108,9 @@ func (b *TelegramBot) HandleAddAlert(c tele.Context) error {
 	if err != nil {
 		return c.Send("Invalid duration format.")
 	}
-	count, err2 := b.store.GetAlertsCountByUserID(userID)
-	if err2 != true {
-		log.Println("Does not able to count the alerts by userID")
+	count, check := b.store.GetAlertsCountByUserID(userID)
+	if !check {
+		return fmt.Errorf("Faild to count alert by UserID")
 	}
 	if count >= maxAlerts {
 		return c.Send("You can only create up to 5 alerts.")
@@ -161,13 +161,17 @@ func (b *TelegramBot) HandleSnooz() tele.HandlerFunc {
 	}
 }
 
-func makeHandleFunc(f HandleFunc) tele.HandlerFunc {
-	return func(c tele.Context) error {
-		if err := f(c); err != nil {
-			return err
-		}
-		return nil
-	}
+// admin
+func (b *TelegramBot) HandleViewUsers(c tele.Context) error {
+	return nil
+}
+
+func (b *TelegramBot) HandleKickUser(c tele.Context) error {
+	return nil
+}
+
+func (b *TelegramBot) HandleBanUser(c tele.Context) error {
+	return nil
 }
 
 func (b *TelegramBot) SendAlert(userID int64, label string) {
