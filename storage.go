@@ -21,10 +21,11 @@ type Storage interface {
 	GetAlert(id string) (*Alert, error)
 	GetAlerts() ([]Alert, error)
 	GetAlertsByUserID(userID int64) ([]Alert, error)
+	GetAlertsCountByUserID(userID int64) (int, bool)
 	CreateAlert(a Alert) error
 	UpdateAlert(id string, a Alert) error
 	DeleteAlert(id string) error
-	GetAlertsCountByUserID(userID int64) (int, bool)
+	DeleteAlertsByUserID(userID int64) error
 }
 
 type SqliteStore struct {
@@ -226,6 +227,12 @@ func (s *SqliteStore) UpdateAlert(id string, alert Alert) error {
 func (s *SqliteStore) DeleteAlert(id string) error {
 	query := GetDeleteAlertQuery()
 	if _, err := s.db.Exec(query, id); err != nil {
+		return err
+	}
+	return nil
+}
+func (s *SqliteStore) DeleteAlertsByUserID(userID int64) error {
+	if _, err := s.db.Exec("DELETE FROM alerts WHERE user_id = ?", userID); err != nil {
 		return err
 	}
 	return nil

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	tele "gopkg.in/telebot.v3"
-	"gopkg.in/telebot.v3/middleware"
 )
 
 type TelegramBot struct {
@@ -31,23 +30,13 @@ func NewTelegramBot(store Storage, apiKey string) (*TelegramBot, error) {
 	}, nil
 }
 func (b *TelegramBot) Init() {
-	b.bot.Use(middleware.AutoRespond())
-	b.bot.Use(AutoResponder)
-
-	// adminIDs, err := b.store.GetAdminIDs()
-	// if err != nil {
-	// 	log.Println("Error finding usersIDs for admins", err)
-	// }
-
-	// userIDs, err := b.store.GetUserIDs()
-	// if err != nil {
-	// 	log.Println("Error finding usersIDs for users", err)
-	// }
+	// b.bot.Use(middleware.Logger())
 
 	// public cammands
-	b.bot.Handle("/echo", MakeHandleFunc(b.HandleEcho), Authenticater)
-	b.bot.Handle("/start", MakeHandleFunc(b.HandleRegister))
-	b.bot.Handle("/deleteme", MakeHandleFunc(b.HandleDeleteMe))
+	public := b.bot.Group()
+	public.Handle("/echo", MakeHandleFunc(b.HandleEcho))
+	public.Handle("/start", MakeHandleFunc(b.HandleRegister))
+	public.Handle("/deleteme", MakeHandleFunc(b.HandleDeleteMe))
 
 	// usersonly
 	usersOnly := b.bot.Group()
@@ -86,7 +75,18 @@ func (b *TelegramBot) HandleRegister(c tele.Context) error {
 	return c.Send("You are registered successfully!")
 }
 func (b *TelegramBot) HandleDeleteMe(c tele.Context) error {
-	return nil
+	userID := c.Sender().ID
+	user, err := b.store.GetUserByUserID(userID)
+	if err != nil {
+		return c.Send("You are not registered yet!")
+	}
+	if err := b.store.DeleteAlertsByUserID(userID); err != nil {
+		return c.Send("Failed to delete user's alerts")
+	}
+	if err := b.store.DeleteUser(user.ID); err != nil {
+		return c.Send("Failed to delete user")
+	}
+	return c.Send("Your data deleted")
 }
 
 // private
@@ -122,7 +122,7 @@ func (b *TelegramBot) HandleAddAlert(c tele.Context) error {
 	if err := b.store.CreateAlert(*newAlert); err != nil {
 		return err
 	}
-	go b.ScheduleAlert(userID, label, triggerAt)
+	go b.ScheduleAlert(userID, newAlert.ID, label, triggerAt)
 	return c.Send(fmt.Sprintf("Alert created: %s in %s", label, durationStr))
 }
 func (b *TelegramBot) HandleViewAlerts(c tele.Context) error {
@@ -135,32 +135,45 @@ func (b *TelegramBot) HandleUpdateAlert(c tele.Context) error {
 	return nil
 }
 func (b *TelegramBot) HandleButtons(c tele.Context) error {
+	parts := strings.Split(c.Callback().Data, "|")
+	if len(parts) < 1 {
+		return nil
+	}
+
+	switch strings.TrimSpace(parts[0]) {
+	case "snooze":
+		return b.HandleSnooz(c)
+	case "dismiss":
+		return b.HandleDismiss(c)
+	}
 	return nil
 }
-func (b *TelegramBot) HandleSnooz() tele.HandlerFunc {
-	return func(c tele.Context) error {
-		// Handle snooze logic
-		data := c.Callback().Data
-		fmt.Println("hi there", data)
-		alertID := c.Callback().Data
-		// if err != nil {
-		// 	return c.Send("Invalid alert ID.")
-		// }
-
-		alert, err := b.store.GetAlert(alertID)
-		if err != nil {
-			return c.Send("Alert not found.", alertID)
-		}
-
-		duration := alert.TriggerAt.Sub(time.Now()) / snoozeFraction
-		newTriggerAt := time.Now().Add(duration)
-		alert.TriggerAt = newTriggerAt
-		if err := b.store.UpdateAlert(alertID, *alert); err != nil {
-			return c.Send("Failed to snooze alert.", err)
-		}
-		go b.ScheduleAlert(alert.UserID, alert.Lable, newTriggerAt)
-		return c.Send(fmt.Sprintf("Alert snoozed for %v", duration))
+func (b *TelegramBot) HandleSnooz(c tele.Context) error {
+	parts := strings.Split(c.Callback().Data, "|")
+	if len(parts) < 2 {
+		return nil
 	}
+	alertID := parts[1]
+	alert, err := b.store.GetAlert(alertID)
+	if err != nil {
+		return c.Send("Invalied alert ID")
+	}
+	duration := alert.TriggerAt.Sub(time.Now()) / snoozeFraction
+	newTriggerAt := time.Now().Add(duration)
+	alert.TriggerAt = newTriggerAt
+	if err := b.store.UpdateAlert(alertID, *alert); err != nil {
+		return c.Send("Failed to snooze alert.", err)
+	}
+	go b.ScheduleAlert(alert.UserID, alert.ID, alert.Lable, newTriggerAt)
+	return c.Send(fmt.Sprintf("Alert snoozed for %v", duration))
+
+}
+func (b *TelegramBot) HandleDismiss(c tele.Context) error {
+	data := c.Callback().Data
+	alertID := c.Callback().Unique
+	fmt.Println("alertID", alertID, data)
+	fmt.Println("data", data)
+	return nil
 }
 
 // admin
@@ -176,19 +189,19 @@ func (b *TelegramBot) HandleBanUser(c tele.Context) error {
 	return nil
 }
 
-func (b *TelegramBot) SendAlert(userID int64, label string) {
+func (b *TelegramBot) SendAlert(userID int64, id, label string) {
 	inlineKeys := [][]tele.InlineButton{
 		{
-			tele.InlineButton{Unique: "snooze", Text: "Snooze"},
-			tele.InlineButton{Unique: "dismiss", Text: "Dismiss"},
+			tele.InlineButton{Unique: "snooze", Text: "Snooze", Data: id},
+			tele.InlineButton{Unique: "dismiss", Text: "Dismiss", Data: id},
 		},
 	}
 	b.bot.Send(tele.ChatID(userID), fmt.Sprintf("Alert: %s", label), &tele.ReplyMarkup{InlineKeyboard: inlineKeys})
 }
 
-func (b *TelegramBot) ScheduleAlert(userID int64, label string, triggerAt time.Time) {
+func (b *TelegramBot) ScheduleAlert(userID int64, id, label string, triggerAt time.Time) {
 	time.Sleep(time.Until(triggerAt))
-	b.SendAlert(userID, label)
+	b.SendAlert(userID, id, label)
 }
 
 func AutoResponder(next tele.HandlerFunc) tele.HandlerFunc {
@@ -197,17 +210,6 @@ func AutoResponder(next tele.HandlerFunc) tele.HandlerFunc {
 			defer c.Respond()
 		}
 		return next(c) // continue execution chain
-	}
-}
-
-func Authenticater(next tele.HandlerFunc) tele.HandlerFunc {
-	return func(c tele.Context) error {
-		var (
-			user = c.Sender()
-			text = c.Text()
-		)
-		log.Println(user, " wrote ", text)
-		return next(c)
 	}
 }
 
